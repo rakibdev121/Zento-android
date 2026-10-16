@@ -1,0 +1,58 @@
+name: Build Seller APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Unpack the app project
+        run: unzip -q Zento-seller-android.zip -d project
+
+      - name: Add Firebase config (if present)
+        run: |
+          if [ -f google-services.json ]; then
+            cp google-services.json project/app/google-services.json
+            echo "Firebase config added"
+          else
+            echo "No google-services.json found. Building without push notifications."
+          fi
+
+      - name: Build the APK
+        working-directory: project
+        run: gradle assembleDebug --no-daemon
+
+      - name: Name the APK
+        run: cp project/app/build/outputs/apk/debug/app-debug.apk Zento-Seller.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Zento-Seller-APK
+          path: Zento-Seller.apk
+
+      - name: Publish a download link
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: seller-latest
+          name: Zento Seller app (latest)
+          body: Download Zento-Seller.apk on your Android phone and install it.
+          files: Zento-Seller.apk
+          make_latest: false
